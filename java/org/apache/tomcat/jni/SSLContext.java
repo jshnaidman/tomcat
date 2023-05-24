@@ -148,7 +148,8 @@ public final class SSLContext {
     public static native void setQuietShutdown(long ctx, boolean mode);
 
     /**
-     * Cipher Suite available for negotiation in SSL handshake.
+     * Cipher Suite available for negotiation in SSL handshake 
+     * for TLSv1.2 and below.
      * <br>
      * This complex directive uses a colon-separated cipher-spec string consisting
      * of OpenSSL cipher specifications to configure the Cipher Suite the client
@@ -159,11 +160,27 @@ public final class SSLContext {
      * renegotiation with the reconfigured Cipher Suite after the HTTP request
      * was read but before the HTTP response is sent.
      * @param ctx Server or Client context to use.
-     * @param ciphers An OpenSSL cipher specification.
+     * @param ciphers An OpenSSL cipher specification for SSL_CTX_set_cipher_list.
      * @return <code>true</code> if the operation was successful
      * @throws Exception An error occurred
      */
     public static native boolean setCipherSuite(long ctx, String ciphers)
+        throws Exception;
+    
+    /**
+     * Cipher Suite available for negotiation in SSL handshake
+     * for TLSv1.3.
+     * <br>
+     * This directive uses a colon-separated cipher-spec string consisting
+     * of TLSv1.3 OpenSSL cipher suite names to configure the Cipher Suites the
+     * client is permitted to negotiate in the SSL handshake phase. 
+     * It applies to the standard SSL handshake when a connection is established. 
+     * @param ctx Server or Client context to use.
+     * @param ciphers An OpenSSL cipher specification meant for SSL_CTX_set_ciphersuites.
+     * @return <code>true</code> if the operation was successful
+     * @throws Exception An error occurred
+     */
+    public static native boolean setCipherSuitesTLS(long ctx, String ciphers)
         throws Exception;
 
     /**

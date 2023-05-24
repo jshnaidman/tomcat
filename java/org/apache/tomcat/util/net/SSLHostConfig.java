@@ -37,6 +37,7 @@ import org.apache.juli.logging.LogFactory;
 import org.apache.tomcat.util.net.openssl.OpenSSLConf;
 import org.apache.tomcat.util.net.openssl.ciphers.Cipher;
 import org.apache.tomcat.util.net.openssl.ciphers.OpenSSLCipherConfigurationParser;
+import org.apache.tomcat.util.net.openssl.ciphers.Protocol;
 import org.apache.tomcat.util.res.StringManager;
 
 /**
@@ -54,7 +55,11 @@ public class SSLHostConfig implements Serializable {
     // keys in Maps.
     protected static final String DEFAULT_SSL_HOST_NAME = "_default_";
     protected static final Set<String> SSL_PROTO_ALL_SET = new HashSet<>();
-    public static final String DEFAULT_TLS_CIPHERS = "HIGH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!kRSA";
+    public static final String DEFAULT_TLS_CIPHERS =
+        "HIGH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!kRSA";
+    // These are the default cipher suites for TLS1.3 in openSSL
+    public static final String DEFAULT_TLS_CIPHERSUITES =
+        "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256";
 
     static {
         /* Default used if protocols are not configured, also used if
@@ -99,6 +104,7 @@ public class SSLHostConfig implements Serializable {
     // Used to track if certificateVerificationDepth has been explicitly set
     private boolean certificateVerificationDepthConfigured = false;
     private String ciphers = DEFAULT_TLS_CIPHERS;
+    private String cipherSuites = DEFAULT_TLS_CIPHERSUITES;
     private LinkedHashSet<Cipher> cipherList = null;
     private List<String> jsseCipherNames = null;
     private boolean honorCipherOrder = false;
@@ -303,6 +309,7 @@ public class SSLHostConfig implements Serializable {
             return defaultCertificate.getCertificateKeyPassword();
         }
     }
+
     public void setCertificateKeyPassword(String certificateKeyPassword) {
         registerDefaultCertificate();
         defaultCertificate.setCertificateKeyPassword(certificateKeyPassword);
@@ -361,15 +368,8 @@ public class SSLHostConfig implements Serializable {
     public boolean isCertificateVerificationDepthConfigured() {
         return certificateVerificationDepthConfigured;
     }
-
-
-    /**
-     * Set the new cipher configuration. Note: Regardless of the format used to
-     * set the configuration, it is always stored in OpenSSL format.
-     *
-     * @param ciphersList The new cipher configuration in OpenSSL or JSSE format
-     */
-    public void setCiphers(String ciphersList) {
+    
+    public String getCipherString(String ciphersList) {
         // Ciphers is stored in OpenSSL format. Convert the provided value if
         // necessary.
         if (ciphersList != null && !ciphersList.contains(":")) {
@@ -391,26 +391,63 @@ public class SSLHostConfig implements Serializable {
                     sb.append(openSSLName);
                 }
             }
-            this.ciphers = sb.toString();
+            return sb.toString();
         } else {
-            this.ciphers = ciphersList;
+            return ciphersList;
         }
+    }
+
+    /**
+     * Set the new cipher configuration for TLSv1.2 and below. Note: Regardless of the format used
+     * to set the configuration, it is always stored in OpenSSL format.
+     *
+     * @param ciphersList The new cipher configuration in OpenSSL or JSSE format
+     */
+    public void setCiphers(String ciphersList) {
+        // Ciphers is stored in OpenSSL format. Convert the provided value if
+        // necessary.
+        this.ciphers = getCipherString(ciphersList);
         this.cipherList = null;
         this.jsseCipherNames = null;
     }
 
+    /**
+     * Set the new cipher configuration for TLSv1.3 and above. Note: Regardless of the format used
+     * to set the configuration, it is always stored in OpenSSL format.
+     *
+     * @param ciphersList The new cipher configuration in OpenSSL or JSSE format
+     */
+    public void setCipherSuites(String ciphersList) {
+        // Ciphersuites is stored in OpenSSL format. As of writing, there is no difference
+        // between the JSSE format and the OpenSSL format for TLSv1.3, but we might
+        // as well treat these strings the same way in case this changes in the future.
+        this.cipherSuites = getCipherString(ciphersList);
+        this.cipherList = null;
+        this.jsseCipherNames = null;
+    }
 
     /**
-     * @return An OpenSSL cipher string for the current configuration.
+     * @return An OpenSSL cipher string for the current configuration for TLSv1.2 and below.
      */
     public String getCiphers() {
         return ciphers;
     }
 
+    /**
+     * 
+     * @return An OpenSSL cipher string for the current configuration for TLSv1.3 and above.
+     */
+    public String getCipherSuites() {
+        return cipherSuites;
+    }
 
     public LinkedHashSet<Cipher> getCipherList() {
         if (cipherList == null) {
             cipherList = OpenSSLCipherConfigurationParser.parse(getCiphers());
+            // Since TLSv1.3 cipher suites are controlled by a different expression,
+            // remove them and re-add the TLSv1.3 ciphers based on the TLSv1.3 expression
+            cipherList.removeIf(cipher -> cipher.getProtocol() == Protocol.TLSv1_3);
+            cipherList.addAll(OpenSSLCipherConfigurationParser.parse(getCipherSuites()));
         }
         return cipherList;
     }
@@ -552,6 +589,7 @@ public class SSLHostConfig implements Serializable {
             return defaultCertificate.getCertificateKeyAlias();
         }
     }
+
     public void setCertificateKeyAlias(String certificateKeyAlias) {
         registerDefaultCertificate();
         defaultCertificate.setCertificateKeyAlias(certificateKeyAlias);
@@ -565,6 +603,7 @@ public class SSLHostConfig implements Serializable {
             return defaultCertificate.getCertificateKeystoreFile();
         }
     }
+
     public void setCertificateKeystoreFile(String certificateKeystoreFile) {
         registerDefaultCertificate();
         defaultCertificate.setCertificateKeystoreFile(certificateKeystoreFile);
@@ -578,6 +617,7 @@ public class SSLHostConfig implements Serializable {
             return defaultCertificate.getCertificateKeystorePassword();
         }
     }
+
     public void setCertificateKeystorePassword(String certificateKeystorePassword) {
         registerDefaultCertificate();
         defaultCertificate.setCertificateKeystorePassword(certificateKeystorePassword);
@@ -591,6 +631,7 @@ public class SSLHostConfig implements Serializable {
             return defaultCertificate.getCertificateKeystoreProvider();
         }
     }
+
     public void setCertificateKeystoreProvider(String certificateKeystoreProvider) {
         registerDefaultCertificate();
         defaultCertificate.setCertificateKeystoreProvider(certificateKeystoreProvider);
@@ -604,6 +645,7 @@ public class SSLHostConfig implements Serializable {
             return defaultCertificate.getCertificateKeystoreType();
         }
     }
+
     public void setCertificateKeystoreType(String certificateKeystoreType) {
         registerDefaultCertificate();
         defaultCertificate.setCertificateKeystoreType(certificateKeystoreType);
@@ -774,6 +816,7 @@ public class SSLHostConfig implements Serializable {
             return defaultCertificate.getCertificateChainFile();
         }
     }
+
     public void setCertificateChainFile(String certificateChainFile) {
         registerDefaultCertificate();
         defaultCertificate.setCertificateChainFile(certificateChainFile);
@@ -787,6 +830,7 @@ public class SSLHostConfig implements Serializable {
             return defaultCertificate.getCertificateFile();
         }
     }
+
     public void setCertificateFile(String certificateFile) {
         registerDefaultCertificate();
         defaultCertificate.setCertificateFile(certificateFile);
@@ -800,6 +844,7 @@ public class SSLHostConfig implements Serializable {
             return defaultCertificate.getCertificateKeyFile();
         }
     }
+
     public void setCertificateKeyFile(String certificateKeyFile) {
         registerDefaultCertificate();
         defaultCertificate.setCertificateKeyFile(certificateKeyFile);

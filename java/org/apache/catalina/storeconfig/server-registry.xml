@@ -135,6 +135,7 @@
         <TransientAttribute>truststorePass</TransientAttribute>
         <TransientAttribute>truststoreProvider</TransientAttribute>
         <TransientAttribute>truststoreType</TransientAttribute>
+        <TransientAttribute>cipherSuites</TransientAttribute>
         <!-- All attribute duplicated from the AbstractHttp11Protocol, removed in Tomcat 10 -->
         <TransientAttribute>clientAuth</TransientAttribute>
         <TransientAttribute>SSLVerifyClient</TransientAttribute>

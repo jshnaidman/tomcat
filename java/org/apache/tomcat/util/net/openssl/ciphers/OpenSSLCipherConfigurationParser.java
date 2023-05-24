@@ -393,6 +393,7 @@ public class OpenSSLCipherConfigurationParser {
     private static final String COMPLEMENTOFALL = "COMPLEMENTOFALL";
 
     private static final Map<String,String> jsseToOpenSSL = new HashMap<>();
+    private static final Set<String> tls13CipherSuites= new HashSet<>();
 
     private static void init() {
 
@@ -422,6 +423,9 @@ public class OpenSSLCipherConfigurationParser {
             Set<String> jsseNames = cipher.getJsseNames();
             for (String jsseName : jsseNames) {
                 jsseToOpenSSL.put(jsseName, cipher.getOpenSSLAlias());
+            }
+            if (Protocol.TLSv1_3.equals(cipher.getProtocol())) {
+                tls13CipherSuites.add(cipher.getOpenSSLAlias());
             }
         }
         List<Cipher> allCiphersList = Arrays.asList(Cipher.values());
@@ -789,6 +793,13 @@ public class OpenSSLCipherConfigurationParser {
             init();
         }
         return jsseToOpenSSL.get(jsseCipherName);
+    }
+    
+    public static boolean isTLSv13Cipher(String cipherName) {
+        if (tls13CipherSuites.contains(cipherName)) {
+            return true;
+        }
+        return false;
     }
 
 

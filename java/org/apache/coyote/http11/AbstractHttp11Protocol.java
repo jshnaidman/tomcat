@@ -980,7 +980,19 @@ public abstract class AbstractHttp11Protocol<S> extends AbstractProtocol<S> {
         registerDefaultSSLHostConfig();
         defaultSSLHostConfig.setCiphers(ciphers);
     }
-
+    
+    // gets the cipher suites expression for TLSv1.3+
+    public String getCipherSuites() {
+        registerDefaultSSLHostConfig();
+        return defaultSSLHostConfig.getCipherSuites();
+    }
+    
+    // sets the cipher suites expression for TLSv1.3+
+    public void setCipherSuites(String cipherSuites) {
+        registerDefaultSSLHostConfig();
+        defaultSSLHostConfig.setCipherSuites(cipherSuites);
+    }
+    
     public String getSSLCipherSuite() {
         registerDefaultSSLHostConfig();
         return defaultSSLHostConfig.getCiphers();

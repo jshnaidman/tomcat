@@ -28,6 +28,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.StringJoiner;
 
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLEngineResult;
@@ -767,7 +768,8 @@ public final class OpenSSLEngine extends SSLEngine implements SSLUtil.ProtocolIn
         if (destroyed) {
             return;
         }
-        final StringBuilder buf = new StringBuilder();
+        final StringJoiner cipherListJoiner = new StringJoiner(":"); // TLSv1.2 and below
+        final StringJoiner cipherSuitesJoiner = new StringJoiner(":"); // TLSv1.3
         for (String cipherSuite : cipherSuites) {
             if (cipherSuite == null) {
                 break;
@@ -779,21 +781,32 @@ public final class OpenSSLEngine extends SSLEngine implements SSLUtil.ProtocolIn
             if (converted != null) {
                 cipherSuite = converted;
             }
-
-            buf.append(cipherSuite);
-            buf.append(':');
+            if (OpenSSLCipherConfigurationParser.isTLSv13Cipher(converted)) {
+                cipherSuitesJoiner.add(converted);
+            }
+            else {
+                cipherListJoiner.add(converted);
+            }
         }
 
-        if (buf.length() == 0) {
+        if (cipherSuitesJoiner.length() == 0 && cipherListJoiner.length() == 0) {
             throw new IllegalArgumentException(sm.getString("engine.emptyCipherSuite"));
         }
-        buf.setLength(buf.length() - 1);
-
-        final String cipherSuiteSpec = buf.toString();
-        try {
-            SSL.setCipherSuites(ssl, cipherSuiteSpec);
-        } catch (Exception e) {
-            throw new IllegalStateException(sm.getString("engine.failedCipherSuite", cipherSuiteSpec), e);
+        
+        if (cipherSuitesJoiner.length() > 0) {
+            try {
+                SSL.setCipherSuitesTLS(ssl, cipherSuitesJoiner.toString());
+            } catch (Exception e) {
+                throw new IllegalStateException(sm.getString("engine.failedCipherSuite", cipherSuitesJoiner.toString()), e);
+            }
+        }
+        
+        if (cipherListJoiner.length() > 0) {
+            try {
+                SSL.setCipherSuites(ssl, cipherListJoiner.toString());
+            } catch (Exception e) {
+                throw new IllegalStateException(sm.getString("engine.failedCipherSuite", cipherListJoiner.toString()), e);
+            }
         }
     }
 
